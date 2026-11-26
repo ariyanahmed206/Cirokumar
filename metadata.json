@@ -1,0 +1,6 @@
+{
+  "name": "Chirakumar Sangha - Bangladesh",
+  "description": "চিরকুমার সংঘ বাংলাদেশ এর অফিসিয়াল ওয়েবসাইট — সদস্য তালিকা, বায়োডাটা নিবন্ধন, কমিটি, ইভেন্ট, নোটিশ বোর্ড ও ডোনেশন।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
