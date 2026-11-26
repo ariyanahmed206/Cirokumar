@@ -128,8 +128,7 @@ export async function seedFirestoreIfEmpty(force = false): Promise<void> {
 
     if (!force) {
       const settingsSnap = await getDoc(doc(db, 'settings', 'site'));
-      const membersSnap = await getDocs(query(collection(db, 'members'), where('id', '>', 0)));
-      if (settingsSnap.exists() && !membersSnap.empty) {
+      if (settingsSnap.exists()) {
         return;
       }
     }

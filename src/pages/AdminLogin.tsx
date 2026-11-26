@@ -25,7 +25,16 @@ export function AdminLogin() {
       toast.success('সফলভাবে লগইন হয়েছেন!');
       navigate('/admin');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'লগইন করতে সমস্যা হয়েছে');
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('auth/unauthorized-domain')) {
+        toast.error(
+          `এই ডোমেইনটি (${window.location.hostname}) Firebase Authorized Domains-এ যোগ করা নেই।`
+        );
+      } else if (msg.includes('auth/popup-closed-by-user')) {
+        toast.info('লগইন পপআপটি বন্ধ করা হয়েছে');
+      } else {
+        toast.error(msg || 'লগইন করতে সমস্যা হয়েছে');
+      }
     } finally {
       setLoading(false);
     }
