@@ -8,7 +8,7 @@ import {
   Trash2,
   UserPlus,
 } from 'lucide-react';
-import { api, clearAdminAuth, getAdminUsername, seedFirestoreIfEmpty } from '../lib/api';
+import { api, clearAdminAuth, getAdminUsername } from '../lib/api';
 import { useRouter } from '../lib/router';
 import { useToast } from '../lib/toast';
 import type {
@@ -104,10 +104,9 @@ export function AdminDashboard({
   });
 
   // Admin settings state
-  const [adminUid, setAdminUid] = useState('');
-  const [adminsList, setAdminsList] = useState<{ uid: string; email: string }[]>([]);
-  const [newAdminForm, setNewAdminForm] = useState({ uid: '', email: '' });
-  const [syncingSeed, setSyncingSeed] = useState(false);
+  const [adminsList, setAdminsList] = useState<Array<{ id: number; username: string; createdAt: string }>>([]);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
+  const [newAdminForm, setNewAdminForm] = useState({ username: '', password: '' });
   const [appLinkInput, setAppLinkInput] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
@@ -145,8 +144,7 @@ export function AdminDashboard({
   useEffect(() => {
     api
       .checkAdminSession()
-      .then((sess) => {
-        setAdminUid(sess.uid || '');
+      .then(() => {
         setCheckingAuth(false);
         loadAll();
       })
@@ -331,7 +329,7 @@ export function AdminDashboard({
   const handleUpdateCmPosition = async (id: number) => {
     if (!editingCmPosition.trim()) return;
     try {
-      await api.updateCommitteeMember(id, editingCmPosition.trim(), selectedCommitteeId || undefined);
+      await api.updateCommitteeMember(id, editingCmPosition.trim());
       toast.success('পদবি হালনাগাদ হয়েছে');
       setEditingCmId(null);
       setEditingCmPosition('');
@@ -980,7 +978,7 @@ export function AdminDashboard({
                             <button
                               type="button"
                               onClick={async () => {
-                                await api.deleteCommitteeMember(cm.id, selectedCommitteeId || undefined);
+                                await api.deleteCommitteeMember(cm.id);
                                 toast.success('কমিটি থেকে সরানো হয়েছে');
                                 loadAll();
                               }}
@@ -1183,71 +1181,79 @@ export function AdminDashboard({
         {/* ADMIN SETTINGS TAB */}
         {activeTab === 'admin' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-              <h3 className="text-lg font-bold text-slate-900">বর্তমান এডমিন তথ্য</h3>
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5 text-sm">
-                <p className="text-slate-700">
-                  অ্যাকাউন্ট: <span className="font-semibold text-slate-900">{getAdminUsername()}</span>
-                </p>
-                {adminUid && (
-                  <p className="text-xs text-slate-500 font-mono break-all">UID: {adminUid}</p>
-                )}
-              </div>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await api.changeAdminPassword(
+                    passwordForm.currentPassword,
+                    passwordForm.newPassword
+                  );
+                  toast.success('পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে');
+                  setPasswordForm({ currentPassword: '', newPassword: '' });
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে');
+                }
+              }}
+              className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4"
+            >
+              <h3 className="text-lg font-bold text-slate-900">পাসওয়ার্ড পরিবর্তন করুন</h3>
+              <p className="text-xs text-slate-500">
+                বর্তমান অ্যাকাউন্ট: <span className="font-semibold text-slate-800">{getAdminUsername()}</span>
+              </p>
+              <input
+                type="password"
+                placeholder="বর্তমান পাসওয়ার্ড *"
+                value={passwordForm.currentPassword}
+                onChange={(e) =>
+                  setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
+                }
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm"
+                required
+              />
+              <input
+                type="password"
+                placeholder="নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর) *"
+                value={passwordForm.newPassword}
+                onChange={(e) =>
+                  setPasswordForm({ ...passwordForm, newPassword: e.target.value })
+                }
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm"
+                required
+              />
               <button
-                type="button"
-                disabled={syncingSeed}
-                onClick={async () => {
-                  setSyncingSeed(true);
-                  try {
-                    await seedFirestoreIfEmpty(true);
-                    await loadAll();
-                    toast.success('প্রাথমিক সদস্য ও কমিটি Firestore-এ সিঙ্ক হয়েছে');
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : 'সিঙ্ক করতে সমস্যা হয়েছে');
-                  } finally {
-                    setSyncingSeed(false);
-                  }
-                }}
-                className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-60"
+                type="submit"
+                className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
               >
-                {syncingSeed ? 'সিঙ্ক হচ্ছে...' : 'প্রাথমিক ডেটা Firestore-এ সিঙ্ক করুন'}
+                পাসওয়ার্ড হালনাগাদ করুন
               </button>
 
               {adminsList.length > 0 && (
-                <div className="pt-3 border-t border-slate-200 space-y-2">
-                  <p className="text-xs font-semibold text-slate-500">অতিরিক্ত এডমিন তালিকা</p>
+                <div className="pt-4 border-t border-slate-200 space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">নিবন্ধিত এডমিন তালিকা</p>
                   {adminsList.map((a) => (
                     <div
-                      key={a.uid}
+                      key={a.id}
                       className="flex items-center justify-between gap-2 text-xs bg-slate-50 px-3 py-2 rounded-lg border border-slate-200"
                     >
-                      <span className="truncate font-medium text-slate-800">{a.email}</span>
-                      {a.uid !== adminUid && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await api.removeAdminUser(a.uid);
-                            toast.success('এডমিন সরানো হয়েছে');
-                            loadAll();
-                          }}
-                          className="text-red-600 hover:underline shrink-0"
-                        >
-                          মুছুন
-                        </button>
-                      )}
+                      <span className="font-medium text-slate-800">{a.username}</span>
+                      <span className="text-slate-500">সক্রিয়</span>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
+            </form>
 
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  await api.addAdminUser(newAdminForm.uid, newAdminForm.email);
-                  toast.success('নতুন এডমিন যোগ করা হয়েছে');
-                  setNewAdminForm({ uid: '', email: '' });
+                  await api.createAdminUser(
+                    newAdminForm.username.trim(),
+                    newAdminForm.password
+                  );
+                  toast.success('নতুন এডমিন অ্যাকাউন্ট তৈরি হয়েছে');
+                  setNewAdminForm({ username: '', password: '' });
                   loadAll();
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : 'ত্রুটি হয়েছে');
@@ -1257,21 +1263,21 @@ export function AdminDashboard({
             >
               <h3 className="text-lg font-bold text-slate-900">নতুন এডমিন যোগ করুন</h3>
               <p className="text-xs text-slate-500">
-                অন্য কাউকে এডমিন করতে তার Firebase Google UID ও ইমেইল দিন।
+                ড্যাশবোর্ডে প্রবেশের জন্য নতুন ইউজারনেম ও পাসওয়ার্ড তৈরি করুন।
               </p>
               <input
                 type="text"
-                placeholder="Firebase User UID *"
-                value={newAdminForm.uid}
-                onChange={(e) => setNewAdminForm({ ...newAdminForm, uid: e.target.value })}
+                placeholder="নতুন ইউজারনেম *"
+                value={newAdminForm.username}
+                onChange={(e) => setNewAdminForm({ ...newAdminForm, username: e.target.value })}
                 className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm"
                 required
               />
               <input
-                type="email"
-                placeholder="এডমিন Google ইমেইল *"
-                value={newAdminForm.email}
-                onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
+                type="password"
+                placeholder="পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর) *"
+                value={newAdminForm.password}
+                onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
                 className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm"
                 required
               />
@@ -1279,7 +1285,7 @@ export function AdminDashboard({
                 type="submit"
                 className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold"
               >
-                এডমিন যোগ করুন
+                এডমিন তৈরি করুন
               </button>
             </form>
           </div>

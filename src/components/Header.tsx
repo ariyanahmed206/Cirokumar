@@ -22,6 +22,15 @@ export function Header({ refreshKey = 0 }: { refreshKey?: number }) {
   }, [refreshKey]);
 
   const logoSrc = settings.logoUrl || '/src/assets/images/chirakumar_emblem_1795673549264.jpg';
+  const safeAppDownloadLink = (() => {
+    if (!settings.appDownloadLink) return null;
+    try {
+      const parsed = new URL(settings.appDownloadLink);
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : null;
+    } catch {
+      return null;
+    }
+  })();
 
   return (
     <header className="bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-600 text-white shadow-md">
@@ -50,9 +59,9 @@ export function Header({ refreshKey = 0 }: { refreshKey?: number }) {
           </Link>
 
           <div className="flex items-center gap-3 shrink-0">
-            {settings.appDownloadLink ? (
+            {safeAppDownloadLink ? (
               <a
-                href={settings.appDownloadLink}
+                href={safeAppDownloadLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-slate-900 font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg shadow-sm transition-colors whitespace-nowrap shrink-0"

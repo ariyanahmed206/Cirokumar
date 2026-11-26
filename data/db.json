@@ -1,5 +1,5 @@
 {
-  "nextId": 1000,
+  "nextId": 1001,
   "members": [
     {
       "id": 1,
@@ -2686,5 +2686,6 @@
       "passwordHash": "4af7642196dc0acc30ce81c8cd57f85d:ba06f27ac33bfd9c7998250e35599a3d1078b959d9f441f1eb8bea31ed667761cd2af971490a4eb5e24020ab9cccfcc7352fb5034219699df0d568a1c3d02dd5",
       "createdAt": "2025-01-01T00:00:00.000Z"
     }
-  ]
+  ],
+  "sessions": []
 }
