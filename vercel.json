@@ -1,14 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": {
-    "api/index.ts": {
-      "includeFiles": "public/assets/aistudio/**"
-    }
-  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api?__path=$1" },
-    { "source": "/uploads/(.*)", "destination": "/api?__path=uploads/$1" },
-    { "source": "/((?!api/|assets/|src/).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|src/).*)", "destination": "/index.html" }
   ]
 }

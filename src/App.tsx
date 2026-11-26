@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Footer } from './components/Footer';
 import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
@@ -96,10 +97,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <RouterProvider>
-        <AppShell />
-      </RouterProvider>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <RouterProvider>
+          <AppShell />
+        </RouterProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }

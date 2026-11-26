@@ -8,7 +8,7 @@ import {
   Trash2,
   UserPlus,
 } from 'lucide-react';
-import { api, clearAdminAuth, getAdminToken, getAdminUsername } from '../lib/api';
+import { api, clearAdminAuth, getAdminUsername, seedFirestoreIfEmpty } from '../lib/api';
 import { useRouter } from '../lib/router';
 import { useToast } from '../lib/toast';
 import type {
@@ -104,15 +104,17 @@ export function AdminDashboard({
   });
 
   // Admin settings state
-  const [pwdForm, setPwdForm] = useState({ currentPassword: '', newPassword: '' });
-  const [newAdminForm, setNewAdminForm] = useState({ username: '', password: '' });
+  const [adminUid, setAdminUid] = useState('');
+  const [adminsList, setAdminsList] = useState<{ uid: string; email: string }[]>([]);
+  const [newAdminForm, setNewAdminForm] = useState({ uid: '', email: '' });
+  const [syncingSeed, setSyncingSeed] = useState(false);
   const [appLinkInput, setAppLinkInput] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const loadAll = async () => {
     try {
-      const [m, n, e, c, d, notifs, msgs, s] = await Promise.all([
-        api.getMembers(),
+      const [m, n, e, c, d, notifs, msgs, s, admins] = await Promise.all([
+        api.getMembers(true),
         api.getNotices(),
         api.getEvents(),
         api.getCommittees(),
@@ -120,6 +122,7 @@ export function AdminDashboard({
         api.getNotifications(),
         api.getMessages(),
         api.getSettings(),
+        api.listAdmins().catch(() => []),
       ]);
       setMembers(m);
       setNotices(n);
@@ -129,6 +132,7 @@ export function AdminDashboard({
       setNotifications(notifs);
       setMessages(msgs);
       setSettings(s);
+      setAdminsList(admins);
       setAppLinkInput(s.appDownloadLink || '');
       if (c.length > 0 && !selectedCommitteeId) {
         setSelectedCommitteeId(c[0].id);
@@ -139,14 +143,10 @@ export function AdminDashboard({
   };
 
   useEffect(() => {
-    const token = getAdminToken();
-    if (!token) {
-      navigate('/admin/login');
-      return;
-    }
     api
       .checkAdminSession()
-      .then(() => {
+      .then((sess) => {
+        setAdminUid(sess.uid || '');
         setCheckingAuth(false);
         loadAll();
       })
@@ -156,8 +156,8 @@ export function AdminDashboard({
       });
   }, []);
 
-  const handleLogout = () => {
-    clearAdminAuth();
+  const handleLogout = async () => {
+    await api.signOutAdmin();
     toast.info('সফলভাবে লগআউট হয়েছেন');
     navigate('/admin/login');
   };
@@ -331,7 +331,7 @@ export function AdminDashboard({
   const handleUpdateCmPosition = async (id: number) => {
     if (!editingCmPosition.trim()) return;
     try {
-      await api.updateCommitteeMember(id, editingCmPosition.trim());
+      await api.updateCommitteeMember(id, editingCmPosition.trim(), selectedCommitteeId || undefined);
       toast.success('পদবি হালনাগাদ হয়েছে');
       setEditingCmId(null);
       setEditingCmPosition('');
@@ -980,7 +980,7 @@ export function AdminDashboard({
                             <button
                               type="button"
                               onClick={async () => {
-                                await api.deleteCommitteeMember(cm.id);
+                                await api.deleteCommitteeMember(cm.id, selectedCommitteeId || undefined);
                                 toast.success('কমিটি থেকে সরানো হয়েছে');
                                 loadAll();
                               }}
@@ -1183,51 +1183,72 @@ export function AdminDashboard({
         {/* ADMIN SETTINGS TAB */}
         {activeTab === 'admin' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  await api.changePassword(pwdForm.currentPassword, pwdForm.newPassword);
-                  toast.success('পাসওয়ার্ড পরিবর্তন করা হয়েছে');
-                  setPwdForm({ currentPassword: '', newPassword: '' });
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : 'ত্রুটি হয়েছে');
-                }
-              }}
-              className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4"
-            >
-              <h3 className="text-lg font-bold text-slate-900">পাসওয়ার্ড পরিবর্তন করুন</h3>
-              <input
-                type="password"
-                placeholder="বর্তমান পাসওয়ার্ড"
-                value={pwdForm.currentPassword}
-                onChange={(e) => setPwdForm({ ...pwdForm, currentPassword: e.target.value })}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm"
-                required
-              />
-              <input
-                type="password"
-                placeholder="নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)"
-                value={pwdForm.newPassword}
-                onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
-                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm"
-                required
-              />
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+              <h3 className="text-lg font-bold text-slate-900">বর্তমান এডমিন তথ্য</h3>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5 text-sm">
+                <p className="text-slate-700">
+                  অ্যাকাউন্ট: <span className="font-semibold text-slate-900">{getAdminUsername()}</span>
+                </p>
+                {adminUid && (
+                  <p className="text-xs text-slate-500 font-mono break-all">UID: {adminUid}</p>
+                )}
+              </div>
               <button
-                type="submit"
-                className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
+                type="button"
+                disabled={syncingSeed}
+                onClick={async () => {
+                  setSyncingSeed(true);
+                  try {
+                    await seedFirestoreIfEmpty(true);
+                    await loadAll();
+                    toast.success('প্রাথমিক সদস্য ও কমিটি Firestore-এ সিঙ্ক হয়েছে');
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'সিঙ্ক করতে সমস্যা হয়েছে');
+                  } finally {
+                    setSyncingSeed(false);
+                  }
+                }}
+                className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-60"
               >
-                পাসওয়ার্ড পরিবর্তন করুন
+                {syncingSeed ? 'সিঙ্ক হচ্ছে...' : 'প্রাথমিক ডেটা Firestore-এ সিঙ্ক করুন'}
               </button>
-            </form>
+
+              {adminsList.length > 0 && (
+                <div className="pt-3 border-t border-slate-200 space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">অতিরিক্ত এডমিন তালিকা</p>
+                  {adminsList.map((a) => (
+                    <div
+                      key={a.uid}
+                      className="flex items-center justify-between gap-2 text-xs bg-slate-50 px-3 py-2 rounded-lg border border-slate-200"
+                    >
+                      <span className="truncate font-medium text-slate-800">{a.email}</span>
+                      {a.uid !== adminUid && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await api.removeAdminUser(a.uid);
+                            toast.success('এডমিন সরানো হয়েছে');
+                            loadAll();
+                          }}
+                          className="text-red-600 hover:underline shrink-0"
+                        >
+                          মুছুন
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  await api.addAdminUser(newAdminForm.username, newAdminForm.password);
+                  await api.addAdminUser(newAdminForm.uid, newAdminForm.email);
                   toast.success('নতুন এডমিন যোগ করা হয়েছে');
-                  setNewAdminForm({ username: '', password: '' });
+                  setNewAdminForm({ uid: '', email: '' });
+                  loadAll();
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : 'ত্রুটি হয়েছে');
                 }
@@ -1235,19 +1256,22 @@ export function AdminDashboard({
               className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4"
             >
               <h3 className="text-lg font-bold text-slate-900">নতুন এডমিন যোগ করুন</h3>
+              <p className="text-xs text-slate-500">
+                অন্য কাউকে এডমিন করতে তার Firebase Google UID ও ইমেইল দিন।
+              </p>
               <input
                 type="text"
-                placeholder="এডমিন ইউজারনেম"
-                value={newAdminForm.username}
-                onChange={(e) => setNewAdminForm({ ...newAdminForm, username: e.target.value })}
+                placeholder="Firebase User UID *"
+                value={newAdminForm.uid}
+                onChange={(e) => setNewAdminForm({ ...newAdminForm, uid: e.target.value })}
                 className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm"
                 required
               />
               <input
-                type="password"
-                placeholder="এডমিন পাসওয়ার্ড"
-                value={newAdminForm.password}
-                onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
+                type="email"
+                placeholder="এডমিন Google ইমেইল *"
+                value={newAdminForm.email}
+                onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
                 className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-sm"
                 required
               />

@@ -1,0 +1,235 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "Public directory profile for a member of Chirakumar Sangha Bangladesh (excludes PII).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Numeric member identifier" },
+        "memberNumber": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "age": { "type": "number", "description": "Age between 14 and 100" },
+        "profession": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "area": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "education": { "type": "string", "maxLength": 200 },
+        "hobbies": { "type": "string", "maxLength": 300 },
+        "about": { "type": "string", "maxLength": 1000 },
+        "photoUrl": { "type": "string", "maxLength": 250000 },
+        "photoVisibility": { "type": "string", "enum": ["show", "hide"] },
+        "joinDate": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "memberNumber",
+        "name",
+        "age",
+        "profession",
+        "area",
+        "photoVisibility",
+        "joinDate",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MemberContact": {
+      "title": "MemberContact",
+      "description": "Isolated PII contact information for a member, readable only by admins.",
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string", "maxLength": 40 },
+        "email": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["createdAt", "updatedAt"]
+    },
+    "Committee": {
+      "title": "Committee",
+      "description": "An organizational committee.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "previousCommitteeId": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "createdAt", "updatedAt"]
+    },
+    "CommitteeMember": {
+      "title": "CommitteeMember",
+      "description": "A member role assignment inside a committee subcollection.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "committeeId": { "type": "number" },
+        "memberId": { "type": "number" },
+        "memberName": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "memberNumber": { "type": "string", "maxLength": 32 },
+        "position": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "photoUrl": { "type": "string", "maxLength": 250000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "committeeId", "memberName", "position", "createdAt", "updatedAt"]
+    },
+    "ClubEvent": {
+      "title": "ClubEvent",
+      "description": "Scheduled organization event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "date": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "time": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "location": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "date", "time", "location", "createdAt"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "Official notice board announcement.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "date": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "time": { "type": "string", "maxLength": 64 },
+        "location": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 3000 },
+        "documentUrl": { "type": "string", "maxLength": 2000 },
+        "documentName": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "date", "createdAt"]
+    },
+    "ClubNotification": {
+      "title": "ClubNotification",
+      "description": "Notification item shown on the notifications page.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "type": { "type": "string", "enum": ["announcement", "alert", "info"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "message", "type", "isRead", "createdAt"]
+    },
+    "DonationRecord": {
+      "title": "DonationRecord",
+      "description": "Submitted donation transaction record pending or verified by admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "donorName": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "method": { "type": "string", "enum": ["বিকাশ", "নগদ", "রকেট"] },
+        "amount": { "type": "number" },
+        "transactionId": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 40 },
+        "note": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["pending", "verified"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "donorName",
+        "method",
+        "amount",
+        "transactionId",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "Contact message submitted by visitors, readable only by admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "message", "createdAt"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global site configuration including logoUrl and appDownloadLink.",
+      "type": "object",
+      "properties": {
+        "logoUrl": { "type": "string", "maxLength": 250000 },
+        "appDownloadLink": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["updatedAt"]
+    },
+    "AdminAccount": {
+      "title": "AdminAccount",
+      "description": "Authorized admin UID record.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/members/{memberId}": {
+      "schema": { "$ref": "#/entities/Member" },
+      "description": "Public member directory profiles"
+    },
+    "/members/{memberId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/MemberContact" },
+      "description": "Isolated PII contact details (phone and email) for a member"
+    },
+    "/committees/{committeeId}": {
+      "schema": { "$ref": "#/entities/Committee" },
+      "description": "Organizational committees"
+    },
+    "/committees/{committeeId}/members/{committeeMemberId}": {
+      "schema": { "$ref": "#/entities/CommitteeMember" },
+      "description": "Committee member roles under each committee"
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/ClubEvent" },
+      "description": "Organization events"
+    },
+    "/notices/{noticeId}": {
+      "schema": { "$ref": "#/entities/Notice" },
+      "description": "Official notices"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/ClubNotification" },
+      "description": "Public notifications"
+    },
+    "/donations/{donationId}": {
+      "schema": { "$ref": "#/entities/DonationRecord" },
+      "description": "Submitted donations (admin read/verify only)"
+    },
+    "/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ContactMessage" },
+      "description": "Contact messages (admin read/delete only)"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Global site settings document"
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminAccount" },
+      "description": "Admin role directory"
+    }
+  }
+}
