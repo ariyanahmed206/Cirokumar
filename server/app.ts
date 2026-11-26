@@ -4,7 +4,12 @@ import path from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { hashPassword, readDb, UPLOADS_DIR, verifyPassword, writeDb } from './db.ts';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  crypto
+    .createHmac('sha256', process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA || process.cwd())
+    .update('chirakumar-session-v1')
+    .digest('hex');
 
 interface TokenPayload {
   adminId: number;
