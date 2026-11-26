@@ -32,6 +32,8 @@ export function AdminLogin() {
         );
       } else if (msg.includes('auth/popup-closed-by-user')) {
         toast.info('লগইন পপআপটি বন্ধ করা হয়েছে');
+      } else if (msg.includes('Missing or insufficient permissions')) {
+        toast.error('Firestore অনুমতিতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
       } else {
         toast.error(msg || 'লগইন করতে সমস্যা হয়েছে');
       }

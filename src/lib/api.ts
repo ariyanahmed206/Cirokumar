@@ -134,13 +134,14 @@ export async function seedFirestoreIfEmpty(force = false): Promise<void> {
     }
 
     type BatchOp = (batch: ReturnType<typeof writeBatch>) => void;
-    const ops: BatchOp[] = [];
+    const baseOps: BatchOp[] = [];
+    const relationalOps: BatchOp[] = [];
 
     for (const m of SEED_MEMBERS) {
       const docId = String(m.id);
       const memberRef = doc(db, 'members', docId);
       const contactRef = doc(db, 'members', docId, 'private', 'contact');
-      ops.push((batch) =>
+      baseOps.push((batch) =>
         batch.set(memberRef, {
           id: m.id,
           memberNumber: truncateStr(m.memberNumber, 32) || docId,
@@ -158,7 +159,7 @@ export async function seedFirestoreIfEmpty(force = false): Promise<void> {
           updatedAt: serverTimestamp(),
         })
       );
-      ops.push((batch) =>
+      relationalOps.push((batch) =>
         batch.set(contactRef, {
           phone: truncateStr(m.phone, 40),
           email: truncateStr(m.email, 120),
@@ -171,7 +172,7 @@ export async function seedFirestoreIfEmpty(force = false): Promise<void> {
     for (const c of SEED_COMMITTEES) {
       const cId = String(c.id);
       const cRef = doc(db, 'committees', cId);
-      ops.push((batch) =>
+      baseOps.push((batch) =>
         batch.set(cRef, {
           id: c.id,
           name: truncateStr(c.name, 150) || 'কমিটি',
@@ -183,7 +184,7 @@ export async function seedFirestoreIfEmpty(force = false): Promise<void> {
       );
       for (const cm of c.committeeMembers) {
         const cmRef = doc(db, 'committees', cId, 'members', String(cm.id));
-        ops.push((batch) =>
+        relationalOps.push((batch) =>
           batch.set(cmRef, {
             id: cm.id,
             committeeId: c.id,
@@ -201,7 +202,7 @@ export async function seedFirestoreIfEmpty(force = false): Promise<void> {
 
     for (const ev of SEED_EVENTS) {
       const evRef = doc(db, 'events', String(ev.id));
-      ops.push((batch) =>
+      baseOps.push((batch) =>
         batch.set(evRef, {
           id: ev.id,
           title: truncateStr(ev.title, 200) || 'ইভেন্ট',
@@ -216,7 +217,7 @@ export async function seedFirestoreIfEmpty(force = false): Promise<void> {
 
     for (const n of SEED_NOTICES) {
       const nRef = doc(db, 'notices', String(n.id));
-      ops.push((batch) =>
+      baseOps.push((batch) =>
         batch.set(nRef, {
           id: n.id,
           title: truncateStr(n.title, 200) || 'নোটিশ',
@@ -233,7 +234,7 @@ export async function seedFirestoreIfEmpty(force = false): Promise<void> {
 
     for (const notif of SEED_NOTIFICATIONS) {
       const notifRef = doc(db, 'notifications', String(notif.id));
-      ops.push((batch) =>
+      baseOps.push((batch) =>
         batch.set(notifRef, {
           id: notif.id,
           title: truncateStr(notif.title, 200) || 'বিজ্ঞপ্তি',
@@ -245,22 +246,24 @@ export async function seedFirestoreIfEmpty(force = false): Promise<void> {
       );
     }
 
-    ops.push((batch) =>
-      batch.set(doc(db, 'settings', 'site'), {
+    const BASE_CHUNK = 300;
+    const RELATIONAL_CHUNK = 8;
+    try {
+      for (let i = 0; i < baseOps.length; i += BASE_CHUNK) {
+        const batch = writeBatch(db);
+        for (const fn of baseOps.slice(i, i + BASE_CHUNK)) fn(batch);
+        await batch.commit();
+      }
+      for (let i = 0; i < relationalOps.length; i += RELATIONAL_CHUNK) {
+        const batch = writeBatch(db);
+        for (const fn of relationalOps.slice(i, i + RELATIONAL_CHUNK)) fn(batch);
+        await batch.commit();
+      }
+      await setDoc(doc(db, 'settings', 'site'), {
         logoUrl: truncateStr(SEED_SETTINGS.logoUrl, 250000),
         appDownloadLink: truncateStr(SEED_SETTINGS.appDownloadLink, 500),
         updatedAt: serverTimestamp(),
-      })
-    );
-
-    const CHUNK = 350;
-    try {
-      for (let i = 0; i < ops.length; i += CHUNK) {
-        const batch = writeBatch(db);
-        const slice = ops.slice(i, i + CHUNK);
-        for (const fn of slice) fn(batch);
-        await batch.commit();
-      }
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'seed');
     }
@@ -618,13 +621,13 @@ export const api = {
     const path = `members/${id}`;
     try {
       await seedFirestoreIfEmpty();
-      const batch = writeBatch(db);
+      const refsToDelete: ReturnType<typeof doc>[] = [];
       const contactRef = doc(db, 'members', String(id), 'private', 'contact');
       const contactSnap = await getDoc(contactRef);
       if (contactSnap.exists()) {
-        batch.delete(contactRef);
+        refsToDelete.push(contactRef);
       }
-      batch.delete(doc(db, 'members', String(id)));
+      refsToDelete.push(doc(db, 'members', String(id)));
 
       const committeesSnap = await getDocs(query(collection(db, 'committees'), where('id', '>', 0)));
       for (const cDoc of committeesSnap.docs) {
@@ -633,11 +636,15 @@ export const api = {
         );
         for (const cmDoc of cmSnap.docs) {
           if (Number(cmDoc.data().memberId) === id) {
-            batch.delete(cmDoc.ref);
+            refsToDelete.push(cmDoc.ref);
           }
         }
       }
-      await batch.commit();
+      for (let i = 0; i < refsToDelete.length; i += 15) {
+        const batch = writeBatch(db);
+        for (const ref of refsToDelete.slice(i, i + 15)) batch.delete(ref);
+        await batch.commit();
+      }
       return { ok: true };
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
@@ -784,15 +791,15 @@ export const api = {
     const path = `committees/${id}`;
     try {
       await seedFirestoreIfEmpty();
-      const batch = writeBatch(db);
       const cmSnap = await getDocs(
         query(collection(db, 'committees', String(id), 'members'), where('committeeId', '>', 0))
       );
-      for (const d of cmSnap.docs) {
-        batch.delete(d.ref);
+      const refsToDelete = [...cmSnap.docs.map((d) => d.ref), doc(db, 'committees', String(id))];
+      for (let i = 0; i < refsToDelete.length; i += 15) {
+        const batch = writeBatch(db);
+        for (const ref of refsToDelete.slice(i, i + 15)) batch.delete(ref);
+        await batch.commit();
       }
-      batch.delete(doc(db, 'committees', String(id)));
-      await batch.commit();
       return { ok: true };
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
