@@ -33,13 +33,27 @@ export interface DatabaseSchema {
   admins: AdminUser[];
 }
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DATA_DIR = IS_SERVERLESS
+  ? path.join('/tmp', 'chirakumar-data')
+  : path.resolve(process.cwd(), 'data');
 const DB_PATH = path.join(DATA_DIR, 'db.json');
 export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
-const SEED_CSV_PATH = path.resolve(
-  process.cwd(),
-  'public/assets/aistudio/members_20261126_063435_31f3cddf.csv'
-);
+
+function resolveCsvPath(filename: string): string {
+  const candidates = [
+    path.resolve(process.cwd(), 'public/assets/aistudio', filename),
+    path.resolve(process.cwd(), 'dist/assets/aistudio', filename),
+    path.resolve(import.meta.dirname || process.cwd(), '../public/assets/aistudio', filename),
+    path.resolve(import.meta.dirname || process.cwd(), '../dist/assets/aistudio', filename),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0];
+}
+
+const SEED_CSV_PATH = resolveCsvPath('members_20261126_063435_31f3cddf.csv');
 
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -168,15 +182,9 @@ export function loadMembersFromCsv(): Member[] {
   return members;
 }
 
-const COMMITTEES_CSV_PATH = path.resolve(
-  process.cwd(),
-  'public/assets/aistudio/committees_20261126_065250_84e9fe2c.csv'
-);
+const COMMITTEES_CSV_PATH = resolveCsvPath('committees_20261126_065250_84e9fe2c.csv');
 
-const COMMITTEE_MEMBERS_CSV_PATH = path.resolve(
-  process.cwd(),
-  'public/assets/aistudio/committeeMembers_20261126_065221_3f2544ec.csv'
-);
+const COMMITTEE_MEMBERS_CSV_PATH = resolveCsvPath('committeeMembers_20261126_065221_3f2544ec.csv');
 
 function loadCommitteeMembersFromCsv(
   initialMembers: Member[]
